@@ -38,22 +38,49 @@ pub enum Error {
 ///
 pub fn convert(number: &[u32], from_base: u32, to_base: u32) -> Result<Vec<u32>, Error> {
     let len = number.len();
+    if from_base <= 1 {
+        return Err(Error::InvalidInputBase);
+    }
+    if to_base <= 1 {
+        return Err(Error::InvalidOutputBase);
+    }
     // the value of the number in base 10, used as a known intermediate
-    let value: u32 = number
+    let value = number
         .iter()
         .enumerate()
-        .map(|(i, n)| n * from_base.pow(len as u32 - (i + 1) as u32))
-        .sum();
+        .map(|(i, &n)| {
+            if n >= from_base {
+                Err(Error::InvalidDigit(n))
+            } else {
+                Ok(n * from_base.pow(len as u32 - (i + 1) as u32))
+            }
+        })
+        .sum::<Result<u32, _>>()?;
 
-    let mut result = Vec::new();
+    let mut out = Vec::new();
 
-    // modulo will be helpful!
     let mut temp = value;
     while temp > 0 {
         let chunk = temp % to_base;
-        result.push(chunk);
+        out.push(chunk);
         temp /= to_base;
     }
 
-    Ok(result.into_iter().rev().collect())
+    if out.is_empty() {
+        out.push(0);
+    }
+
+    Ok(out.into_iter().rev().collect())
 }
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Error::InvalidDigit(x) => write!(f, "Invalid Digit in input: {}", x),
+            Error::InvalidInputBase => write!(f, "Invalid Input Base"),
+            Error::InvalidOutputBase => write!(f, "Invalid Output Base"),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
